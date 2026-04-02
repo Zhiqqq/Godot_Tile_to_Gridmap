@@ -1,13 +1,13 @@
 [gd_scene load_steps=4 format=3 uid="uid://be2ortnjaagn3"]
 
-[ext_resource type="Script" uid="uid://bqcq3pln0gxhy" path="res://addons/tile_to_gridmap/tile_to_gridmap_ui.gd" id="1_ievsx"]
-[ext_resource type="Texture2D" uid="uid://ctitclhfoe0mh" path="res://addons/tile_to_gridmap/TileToGridMap.svg" id="2_ffiu3"]
+[ext_resource type="Script" uid="uid://bqcq3pln0gxhy" path="res://addons/dual_grid_3d/dg3d_ui.gd" id="1_ievsx"]
+[ext_resource type="Texture2D" uid="uid://ctitclhfoe0mh" path="res://addons/dual_grid_3d/DualGrid3D.svg" id="2_ffiu3"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_ievsx"]
 font_size = 25
 outline_size = 1
 
-[node name="TileToGridmap" type="Control"]
+[node name="DualGrid3D" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -45,7 +45,7 @@ stretch_mode = 3
 
 [node name="TitleLabel" type="Label" parent="Panel/CenterContainer/VBoxContainer/HBoxContainer"]
 layout_mode = 2
-text = "Tile to Gridmap Manager"
+text = "DualGrid3D"
 label_settings = SubResource("LabelSettings_ievsx")
 horizontal_alignment = 1
 
@@ -56,7 +56,7 @@ theme_override_constants/margin_right = 20
 
 [node name="BuildButton" type="Button" parent="Panel/CenterContainer/VBoxContainer/MarginContainer3"]
 layout_mode = 2
-text = "Build All Gridmaps"
+text = "Build All"
 
 [node name="MarginContainer2" type="MarginContainer" parent="Panel/CenterContainer/VBoxContainer"]
 layout_mode = 2
@@ -65,7 +65,7 @@ theme_override_constants/margin_right = 20
 
 [node name="ClearButton" type="Button" parent="Panel/CenterContainer/VBoxContainer/MarginContainer2"]
 layout_mode = 2
-text = "Clear All Gridmaps"
+text = "Clear All"
 
 [connection signal="pressed" from="Panel/CenterContainer/VBoxContainer/MarginContainer3/BuildButton" to="." method="_on_build_button_pressed"]
 [connection signal="pressed" from="Panel/CenterContainer/VBoxContainer/MarginContainer2/ClearButton" to="." method="_on_clear_button_pressed"]
