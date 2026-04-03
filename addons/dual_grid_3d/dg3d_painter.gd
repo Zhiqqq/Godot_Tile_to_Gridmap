@@ -49,6 +49,25 @@ func erase_cell(logical_pos: Vector2i) -> void:
 	rebuild_cell(logical_pos)
 
 
+# Batch paint/erase — terrain "" means erase.
+# Rebuilds each affected GridMap cell only once, much faster than repeated paint_cell calls.
+func paint_cells(cells: Dictionary) -> void:
+	if not _validate():
+		return
+	_ensure_variants_cached()
+	var affected: Dictionary = {}
+	for pos: Vector2i in cells:
+		var terrain: String = cells[pos]
+		if terrain == "":
+			logical_grid_data.erase_cell(pos)
+		else:
+			logical_grid_data.set_cell(pos, terrain)
+		for gm_pos: Vector3i in _get_affected_gridmap_cells(pos):
+			affected[gm_pos] = true
+	for gm_pos: Vector3i in affected:
+		_recompute_gridmap_cell(gm_pos)
+
+
 func rebuild_cell(logical_pos: Vector2i) -> void:
 	if not _validate():
 		return

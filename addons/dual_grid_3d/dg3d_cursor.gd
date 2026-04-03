@@ -47,5 +47,26 @@ func move_to(logical_pos: Vector2i, cell_size: Vector3, height: int, gm_transfor
 	show()
 
 
+func move_rect(start: Vector2i, end: Vector2i, cell_size: Vector3, height: int, gm_transform: Transform3D) -> void:
+	var min_x := mini(start.x, end.x)
+	var min_z := mini(start.y, end.y)
+	var max_x := maxi(start.x, end.x)
+	var max_z := maxi(start.y, end.y)
+	# Same +1 offset logic as move_to: rect spans [min*cell_size, (max+2)*cell_size] in local space
+	var local_center := Vector3(
+		(min_x + max_x + 2.0) * 0.5 * cell_size.x,
+		height * cell_size.y + cell_size.y * 0.5,
+		(min_z + max_z + 2.0) * 0.5 * cell_size.z,
+	)
+	position = gm_transform * local_center
+	var gm_scale := gm_transform.basis.get_scale()
+	(_mesh_instance.mesh as BoxMesh).size = Vector3(
+		(max_x - min_x + 2) * cell_size.x * gm_scale.x,
+		cell_size.y * 0.05 * gm_scale.y,
+		(max_z - min_z + 2) * cell_size.z * gm_scale.z,
+	)
+	show()
+
+
 func set_erase_mode(erase: bool) -> void:
 	_material.albedo_color = ERASE_COLOR if erase else PAINT_COLOR

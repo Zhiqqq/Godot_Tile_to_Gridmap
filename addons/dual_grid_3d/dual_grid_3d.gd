@@ -23,6 +23,11 @@ var _cached_mouse_pos: Vector2 = Vector2.ZERO
 var _undo_old: Dictionary = {}  # Vector2i → String (terrain before stroke)
 var _undo_new: Dictionary = {}  # Vector2i → String (terrain after stroke)
 
+# Rect fill state
+var _is_rect_painting: bool = false
+var _rect_start: Vector2i = Vector2i.ZERO
+var _rect_end:   Vector2i = Vector2i.ZERO
+
 
 # ── Plugin lifecycle ───────────────────────────────────────────────────────────
 
@@ -81,7 +86,7 @@ func _forward_3d_gui_input(camera: Camera3D, event: InputEvent) -> int:
 		_handle_mouse_motion(camera)
 		if _is_painting:
 			_try_paint(camera)
-		return AFTER_GUI_INPUT_PASS
+		return AFTER_GUI_INPUT_STOP if _is_rect_painting else AFTER_GUI_INPUT_PASS
 
 	if event is InputEventMouseButton:
 		return _handle_mouse_button(event, camera)
@@ -92,6 +97,15 @@ func _forward_3d_gui_input(camera: Camera3D, event: InputEvent) -> int:
 func _handle_mouse_motion(camera: Camera3D) -> void:
 	var logical_pos := _screen_to_logical_cell(camera, _cached_mouse_pos)
 	if logical_pos == Vector2i(-99999, -99999):
+		return
+	if _is_rect_painting:
+		_rect_end = logical_pos
+		(_cursor as DG3DCursor).move_rect(
+			_rect_start, _rect_end,
+			_active_painter.grid_map.cell_size,
+			_active_painter.grid_height,
+			_active_painter.grid_map.global_transform
+		)
 		return
 	if logical_pos == _last_preview_pos:
 		return
@@ -107,13 +121,25 @@ func _handle_mouse_button(event: InputEventMouseButton, camera: Camera3D) -> int
 		if event.pressed:
 			if _selected_terrain == "" and not _erase_mode:
 				return AFTER_GUI_INPUT_STOP
-			_is_painting = true
 			_undo_old.clear()
 			_undo_new.clear()
-			_try_paint(camera)
+			if event.shift_pressed:
+				var logical_pos := _screen_to_logical_cell(camera, _cached_mouse_pos)
+				if logical_pos == Vector2i(-99999, -99999):
+					return AFTER_GUI_INPUT_STOP
+				_is_rect_painting = true
+				_rect_start = logical_pos
+				_rect_end   = logical_pos
+			else:
+				_is_painting = true
+				_try_paint(camera)
 			return AFTER_GUI_INPUT_STOP
 		else:
-			if _is_painting:
+			if _is_rect_painting:
+				_is_rect_painting = false
+				_apply_rect_fill()
+				_commit_undo()
+			elif _is_painting:
 				_is_painting = false
 				_commit_undo()
 			return AFTER_GUI_INPUT_STOP
@@ -169,12 +195,28 @@ func _commit_undo() -> void:
 
 
 func _apply_batch(painter: DG3DPainter, batch: Dictionary) -> void:
-	for pos in batch:
-		var terrain: String = batch[pos]
-		if terrain == "":
-			painter.erase_cell(pos)
-		else:
-			painter.paint_cell(pos, terrain)
+	painter.paint_cells(batch)
+
+
+func _apply_rect_fill() -> void:
+	var min_x := mini(_rect_start.x, _rect_end.x)
+	var min_z := mini(_rect_start.y, _rect_end.y)
+	var max_x := maxi(_rect_start.x, _rect_end.x)
+	var max_z := maxi(_rect_start.y, _rect_end.y)
+	var grid   := _active_painter.logical_grid_data
+	var changes: Dictionary = {}
+	for x in range(min_x, max_x + 1):
+		for z in range(min_z, max_z + 1):
+			var pos := Vector2i(x, z)
+			var old_val: String = grid.get_cell(pos)
+			var new_val: String = "" if _erase_mode else _selected_terrain
+			if old_val == new_val:
+				continue
+			if not _undo_old.has(pos):
+				_undo_old[pos] = old_val
+			_undo_new[pos] = new_val
+			changes[pos]   = new_val
+	_active_painter.paint_cells(changes)
 
 
 # ── Raycasting ────────────────────────────────────────────────────────────────
