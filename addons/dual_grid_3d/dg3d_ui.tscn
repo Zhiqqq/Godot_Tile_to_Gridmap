@@ -24,48 +24,62 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="CenterContainer" type="CenterContainer" parent="Panel"]
+[node name="ScrollContainer" type="ScrollContainer" parent="Panel"]
 layout_mode = 1
-anchors_preset = 10
+anchors_preset = 15
 anchor_right = 1.0
-offset_bottom = 199.0
+anchor_bottom = 1.0
 grow_horizontal = 2
+grow_vertical = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="Panel/CenterContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Panel/ScrollContainer/VBoxContainer"]
 layout_mode = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="Panel/CenterContainer/VBoxContainer"]
-layout_mode = 2
-
-[node name="TextureRect" type="TextureRect" parent="Panel/CenterContainer/VBoxContainer/HBoxContainer"]
+[node name="TextureRect" type="TextureRect" parent="Panel/ScrollContainer/VBoxContainer/HBoxContainer"]
 layout_mode = 2
 texture = ExtResource("2_ffiu3")
 expand_mode = 2
 stretch_mode = 3
 
-[node name="TitleLabel" type="Label" parent="Panel/CenterContainer/VBoxContainer/HBoxContainer"]
+[node name="TitleLabel" type="Label" parent="Panel/ScrollContainer/VBoxContainer/HBoxContainer"]
 layout_mode = 2
 text = "DualGrid3D"
 label_settings = SubResource("LabelSettings_ievsx")
 horizontal_alignment = 1
 
-[node name="MarginContainer3" type="MarginContainer" parent="Panel/CenterContainer/VBoxContainer"]
+[node name="TerrainLabel" type="Label" parent="Panel/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+text = "Terrain"
+theme_override_font_sizes/font_size = 14
+
+[node name="TerrainPalette" type="HFlowContainer" parent="Panel/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Separator" type="HSeparator" parent="Panel/ScrollContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="MarginContainer3" type="MarginContainer" parent="Panel/ScrollContainer/VBoxContainer"]
 layout_mode = 2
 theme_override_constants/margin_left = 20
 theme_override_constants/margin_right = 20
 
-[node name="BuildButton" type="Button" parent="Panel/CenterContainer/VBoxContainer/MarginContainer3"]
+[node name="BuildButton" type="Button" parent="Panel/ScrollContainer/VBoxContainer/MarginContainer3"]
 layout_mode = 2
 text = "Build All"
 
-[node name="MarginContainer2" type="MarginContainer" parent="Panel/CenterContainer/VBoxContainer"]
+[node name="MarginContainer2" type="MarginContainer" parent="Panel/ScrollContainer/VBoxContainer"]
 layout_mode = 2
 theme_override_constants/margin_left = 20
 theme_override_constants/margin_right = 20
 
-[node name="ClearButton" type="Button" parent="Panel/CenterContainer/VBoxContainer/MarginContainer2"]
+[node name="ClearButton" type="Button" parent="Panel/ScrollContainer/VBoxContainer/MarginContainer2"]
 layout_mode = 2
 text = "Clear All"
 
-[connection signal="pressed" from="Panel/CenterContainer/VBoxContainer/MarginContainer3/BuildButton" to="." method="_on_build_button_pressed"]
-[connection signal="pressed" from="Panel/CenterContainer/VBoxContainer/MarginContainer2/ClearButton" to="." method="_on_clear_button_pressed"]
+[connection signal="pressed" from="Panel/ScrollContainer/VBoxContainer/MarginContainer3/BuildButton" to="." method="_on_build_button_pressed"]
+[connection signal="pressed" from="Panel/ScrollContainer/VBoxContainer/MarginContainer2/ClearButton" to="." method="_on_clear_button_pressed"]

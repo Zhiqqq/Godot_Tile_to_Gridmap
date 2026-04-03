@@ -1,0 +1,5 @@
+[gd_scene format=3 uid="uid://c4mec8l4v5w0n"]
+
+[ext_resource type="PackedScene" uid="uid://cv865kfkd68f3" path="res://example/asset/glb/Untitled.glb" id="1_l0c8i"]
+
+[node name="terrian" unique_id=1977688742 instance=ExtResource("1_l0c8i")]

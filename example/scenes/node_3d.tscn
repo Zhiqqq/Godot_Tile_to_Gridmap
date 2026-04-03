@@ -1,0 +1,23 @@
+[gd_scene format=3 uid="uid://6gr4hhfgn8jn"]
+
+[ext_resource type="Script" uid="uid://dw74pw34gktup" path="res://addons/dual_grid_3d/dg3d_painter.gd" id="1_pjsak"]
+[ext_resource type="Script" uid="uid://cy4o586om4ehj" path="res://addons/dual_grid_3d/resources/dg3d_logical_grid.gd" id="2_t6d5e"]
+[ext_resource type="MeshLibrary" uid="uid://clrm3hi1x8bk" path="res://example/asset/glb/terrain.tres" id="3_hgdhk"]
+
+[sub_resource type="Resource" id="Resource_gfd57"]
+script = ExtResource("2_t6d5e")
+metadata/_custom_type_script = "uid://cy4o586om4ehj"
+
+[node name="Node3D" type="Node3D" unique_id=535116933]
+
+[node name="DG3DPainter" type="Node3D" parent="." unique_id=264095431 node_paths=PackedStringArray("grid_map")]
+script = ExtResource("1_pjsak")
+grid_map = NodePath("../GridMap")
+logical_grid_data = SubResource("Resource_gfd57")
+terrain_heights = {
+"grass_dirt_": 0
+}
+metadata/_custom_type_script = "uid://dw74pw34gktup"
+
+[node name="GridMap" type="GridMap" parent="." unique_id=479008872]
+mesh_library = ExtResource("3_hgdhk")
