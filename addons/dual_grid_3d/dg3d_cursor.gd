@@ -29,17 +29,20 @@ func _ready() -> void:
 
 # Move cursor to the given logical cell position.
 # cell_size is the GridMap's cell_size; height is the Y layer index.
-func move_to(logical_pos: Vector2i, cell_size: Vector3, height: int) -> void:
+func move_to(logical_pos: Vector2i, cell_size: Vector3, height: int, gm_transform: Transform3D) -> void:
 	# Dual-Grid: logical cell (lx, lz) covers GridMap cells (lx,h,lz) to (lx+1,h,lz+1)
-	position = Vector3(
+	# Convert from GridMap local space to world space
+	var local_pos := Vector3(
 		(logical_pos.x + 1.0) * cell_size.x,
 		height * cell_size.y + cell_size.y * 0.5,
 		(logical_pos.y + 1.0) * cell_size.z
 	)
+	position = gm_transform * local_pos
+	var gm_scale := gm_transform.basis.get_scale()
 	(_mesh_instance.mesh as BoxMesh).size = Vector3(
-		cell_size.x * 2.0,
-		cell_size.y * 0.05,
-		cell_size.z * 2.0
+		cell_size.x * 2.0 * gm_scale.x,
+		cell_size.y * 0.05 * gm_scale.y,
+		cell_size.z * 2.0 * gm_scale.z
 	)
 	show()
 

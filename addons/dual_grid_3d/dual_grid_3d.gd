@@ -96,7 +96,7 @@ func _handle_mouse_motion(camera: Camera3D) -> void:
 	if logical_pos == _last_preview_pos:
 		return
 	_last_preview_pos = logical_pos
-	(_cursor as DG3DCursor).move_to(logical_pos, _active_painter.grid_map.cell_size, _active_painter.grid_height)
+	(_cursor as DG3DCursor).move_to(logical_pos, _active_painter.grid_map.cell_size, _active_painter.grid_height, _active_painter.grid_map.global_transform)
 
 
 func _handle_mouse_button(event: InputEventMouseButton, camera: Camera3D) -> int:
@@ -106,7 +106,7 @@ func _handle_mouse_button(event: InputEventMouseButton, camera: Camera3D) -> int
 
 		if event.pressed:
 			if _selected_terrain == "" and not _erase_mode:
-				return AFTER_GUI_INPUT_PASS
+				return AFTER_GUI_INPUT_STOP
 			_is_painting = true
 			_undo_old.clear()
 			_undo_new.clear()
@@ -182,13 +182,19 @@ func _apply_batch(painter: DG3DPainter, batch: Dictionary) -> void:
 func _screen_to_logical_cell(camera: Camera3D, screen_pos: Vector2) -> Vector2i:
 	var ray_origin := camera.project_ray_origin(screen_pos)
 	var ray_dir    := camera.project_ray_normal(screen_pos)
-	var cell_size  := _active_painter.grid_map.cell_size
-	var plane_y    := _active_painter.grid_height * cell_size.y
-	var plane      := Plane(Vector3.UP, plane_y)
-	var hit: Variant = plane.intersects_ray(ray_origin, ray_dir)
+	var grid_map   := _active_painter.grid_map
+	var cell_size  := grid_map.cell_size
+
+	# Transform ray into GridMap local space so scale/position/rotation are handled correctly
+	var inv         := grid_map.global_transform.affine_inverse()
+	var local_origin := inv * ray_origin
+	var local_dir    := inv.basis * ray_dir
+
+	var plane := Plane(Vector3.UP, _active_painter.grid_height * cell_size.y)
+	var hit: Variant = plane.intersects_ray(local_origin, local_dir)
 	if hit == null:
 		return Vector2i(-99999, -99999)
-	return Vector2i(floori(hit.x / cell_size.x), floori(hit.z / cell_size.z))
+	return Vector2i(roundi(hit.x / cell_size.x) - 1, roundi(hit.z / cell_size.z) - 1)
 
 
 # ── Cursor helpers ────────────────────────────────────────────────────────────
@@ -198,7 +204,6 @@ func _add_cursor_to_scene() -> void:
 	var root := get_tree().edited_scene_root
 	if root:
 		root.add_child(_cursor)
-		_cursor.owner = root
 
 
 func _remove_cursor() -> void:
