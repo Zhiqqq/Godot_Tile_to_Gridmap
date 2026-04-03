@@ -2,70 +2,104 @@
 extends Resource
 class_name DG3DLogicalGrid
 
-# Parallel arrays for serialization (safe across Godot versions)
-@export var _keys_x: PackedInt32Array = []
-@export var _keys_y: PackedInt32Array = []
-@export var _values: PackedStringArray = []
+# Single runtime source of truth — clean Dictionary API for all callers.
+# Serialized as compact PackedInt32Array/PackedStringArray via _get/_set/_get_property_list.
+var data: Dictionary = {}
 
-# Runtime cache (not serialized)
-var _cache: Dictionary = {}
-var _cache_dirty: bool = true
+# Temporary load buffers, cleared after data is rebuilt from them.
+var _lx: PackedInt32Array = []
+var _ly: PackedInt32Array = []
+var _lv: PackedStringArray = []
 
+
+# ── Serialization ─────────────────────────────────────────────────────────────
+
+func _get_property_list() -> Array[Dictionary]:
+	return [
+		{"name": "_lx", "type": TYPE_PACKED_INT32_ARRAY,   "usage": PROPERTY_USAGE_STORAGE},
+		{"name": "_ly", "type": TYPE_PACKED_INT32_ARRAY,   "usage": PROPERTY_USAGE_STORAGE},
+		{"name": "_lv", "type": TYPE_PACKED_STRING_ARRAY,  "usage": PROPERTY_USAGE_STORAGE},
+	]
+
+
+func _get(property: StringName) -> Variant:
+	match property:
+		"_lx":
+			var arr := PackedInt32Array()
+			for pos: Vector2i in data: arr.append(pos.x)
+			return arr
+		"_ly":
+			var arr := PackedInt32Array()
+			for pos: Vector2i in data: arr.append(pos.y)
+			return arr
+		"_lv":
+			var arr := PackedStringArray()
+			for pos: Vector2i in data: arr.append(data[pos])
+			return arr
+	return null
+
+
+func _set(property: StringName, value: Variant) -> bool:
+	match property:
+		"_lx": _lx = value
+		"_ly": _ly = value
+		"_lv": _lv = value
+		_: return false
+	# Rebuild data once all three arrays are loaded (sizes consistent)
+	if _lx.size() == _ly.size() and _ly.size() == _lv.size():
+		data.clear()
+		for i in _lx.size():
+			data[Vector2i(_lx[i], _ly[i])] = _lv[i]
+		_lx.resize(0)
+		_ly.resize(0)
+		_lv.resize(0)
+	return true
+
+
+# ── Public API ────────────────────────────────────────────────────────────────
 
 func get_cell(pos: Vector2i) -> String:
-	_rebuild_cache_if_needed()
-	return _cache.get(pos, "")
+	return data.get(pos, "")
 
 
 func set_cell(pos: Vector2i, terrain: String) -> void:
-	_rebuild_cache_if_needed()
-	if _cache.get(pos, "") == terrain:
+	if data.get(pos, "") == terrain:
 		return
-	_cache[pos] = terrain
-	_sync_cache_to_arrays()
+	data[pos] = terrain
 	emit_changed()
 
 
 func erase_cell(pos: Vector2i) -> void:
-	_rebuild_cache_if_needed()
-	if not _cache.has(pos):
+	if not data.has(pos):
 		return
-	_cache.erase(pos)
-	_sync_cache_to_arrays()
+	data.erase(pos)
 	emit_changed()
 
 
+func set_cells_batch(cells: Dictionary) -> void:
+	var changed := false
+	for pos: Vector2i in cells:
+		var terrain: String = cells[pos]
+		var current: String = data.get(pos, "")
+		if terrain == current:
+			continue
+		if terrain == "":
+			data.erase(pos)
+		else:
+			data[pos] = terrain
+		changed = true
+	if changed:
+		emit_changed()
+
+
 func get_used_cells() -> Array[Vector2i]:
-	_rebuild_cache_if_needed()
 	var result: Array[Vector2i] = []
-	for key in _cache.keys():
-		result.append(key)
+	result.assign(data.keys())
 	return result
 
 
 func clear() -> void:
-	_cache.clear()
-	_cache_dirty = false
-	_keys_x.clear()
-	_keys_y.clear()
-	_values.clear()
-	emit_changed()
-
-
-func _rebuild_cache_if_needed() -> void:
-	if not _cache_dirty:
+	if data.is_empty():
 		return
-	_cache.clear()
-	for i in _keys_x.size():
-		_cache[Vector2i(_keys_x[i], _keys_y[i])] = _values[i]
-	_cache_dirty = false
-
-
-func _sync_cache_to_arrays() -> void:
-	_keys_x.clear()
-	_keys_y.clear()
-	_values.clear()
-	for pos in _cache:
-		_keys_x.append(pos.x)
-		_keys_y.append(pos.y)
-		_values.append(_cache[pos])
+	data.clear()
+	emit_changed()
