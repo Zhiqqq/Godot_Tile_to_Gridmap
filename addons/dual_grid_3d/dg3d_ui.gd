@@ -3,6 +3,7 @@ extends Control
 
 signal build_button_pressed()
 signal clear_button_pressed()
+signal paint_mode_changed(enabled: bool)
 
 var _terrain_group: ButtonGroup
 var _palette_container: HFlowContainer
@@ -20,6 +21,16 @@ func _on_build_button_pressed() -> void:
 
 func _on_clear_button_pressed() -> void:
 	clear_button_pressed.emit()
+
+
+func _on_paint_mode_toggled(pressed: bool) -> void:
+	paint_mode_changed.emit(pressed)
+
+
+func reset_paint_mode() -> void:
+	var btn := find_child("PaintModeButton", true, false) as CheckButton
+	if btn:
+		btn.set_pressed_no_signal(false)
 
 
 # Called by the plugin when a DG3DPainter is selected.

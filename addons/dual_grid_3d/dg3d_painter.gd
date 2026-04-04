@@ -22,11 +22,32 @@ const NEIGHBOURS: Array = [
 # Example: { "cliff": [0, 1, 2] }
 @export var terrain_excludes: Dictionary = {}
 
+## 留空则自动放在 logical_grid_data 同目录下（terrain_data_gridmap.res）
+@export_global_file("*.res") var bake_cache_path: String = ""
+
 @export_tool_button("Rebuild Gridmap") var _btn_rebuild = rebuild_gridmap
 @export_tool_button("Clear Gridmap")   var _btn_clear   = clear_gridmap
+@export_tool_button("Bake GridMap")    var _btn_bake    = func(): bake_gridmap()
 
 # Runtime cache of MeshLibrary variants: { "grass0": ["grass0", "grass0b", ...] }
 var _tile_variants: Dictionary = {}
+
+
+# ── Lifecycle ─────────────────────────────────────────────────────────────────
+
+func _ready() -> void:
+	if Engine.is_editor_hint():
+		return
+	if logical_grid_data:
+		logical_grid_data = logical_grid_data.duplicate(true)
+	var cache_path := _get_cache_path()
+	if not cache_path.is_empty() and ResourceLoader.exists(cache_path):
+		var cache := ResourceLoader.load(cache_path) as DG3DGridMapCache
+		if cache and grid_map:
+			grid_map.set("data", {"cells": cache.cells})
+			return
+	if _validate():
+		rebuild_gridmap()
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -90,6 +111,30 @@ func rebuild_gridmap() -> void:
 func clear_gridmap() -> void:
 	if grid_map:
 		grid_map.clear()
+
+
+func bake_gridmap() -> void:
+	if not _validate():
+		return
+	rebuild_gridmap()
+	var path := _get_cache_path()
+	if path.is_empty():
+		push_error("DG3DPainter: logical_grid_data has no saved path, cannot bake")
+		return
+	var cache := DG3DGridMapCache.new()
+	var data: Dictionary = grid_map.get("data")
+	if data.has("cells"):
+		cache.cells = data["cells"]
+	ResourceSaver.save(cache, path)
+	print("DG3DPainter: baked GridMap to ", path)
+
+
+func _get_cache_path() -> String:
+	if not bake_cache_path.is_empty():
+		return bake_cache_path
+	if not logical_grid_data or logical_grid_data.resource_path.is_empty():
+		return ""
+	return logical_grid_data.resource_path.get_basename() + "_gridmap.res"
 
 
 # ── Internal ──────────────────────────────────────────────────────────────────

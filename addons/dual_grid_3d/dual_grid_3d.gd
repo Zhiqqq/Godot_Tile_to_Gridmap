@@ -13,6 +13,7 @@ var _active_painter: DG3DPainter = null
 var _selected_terrain: String = ""
 var _erase_mode: bool = false
 var _is_painting: bool = false
+var _paint_mode: bool = false
 
 # Throttle
 var _last_paint_time: float = 0.0
@@ -40,6 +41,7 @@ func _enter_tree() -> void:
 	add_control_to_dock(EditorPlugin.DOCK_SLOT_RIGHT_BL, _ui)
 	_ui.build_button_pressed.connect(_on_build_pressed)
 	_ui.clear_button_pressed.connect(_on_clear_pressed)
+	_ui.paint_mode_changed.connect(func(enabled: bool) -> void: _paint_mode = enabled)
 
 	_cursor = preload("res://addons/dual_grid_3d/dg3d_cursor.gd").new()
 	_cursor.name = "DG3DCursor"
@@ -71,12 +73,16 @@ func _make_visible(visible: bool) -> void:
 		_cursor.visible = visible
 	if not visible:
 		_active_painter = null
+		_paint_mode = false
+		_ui.reset_paint_mode()
 
 
 # ── 3D viewport input ──────────────────────────────────────────────────────────
 
 func _forward_3d_gui_input(camera: Camera3D, event: InputEvent) -> int:
 	if not _active_painter or not _active_painter.grid_map:
+		return AFTER_GUI_INPUT_PASS
+	if not _paint_mode:
 		return AFTER_GUI_INPUT_PASS
 
 	if event is InputEventMouse:
