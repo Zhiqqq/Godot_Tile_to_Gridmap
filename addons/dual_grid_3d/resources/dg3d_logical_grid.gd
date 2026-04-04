@@ -6,53 +6,69 @@ class_name DG3DLogicalGrid
 # Serialized as compact PackedInt32Array/PackedStringArray via _get/_set/_get_property_list.
 var data: Dictionary = {}
 
-# Temporary load buffers, cleared after data is rebuilt from them.
-var _lx: PackedInt32Array = []
-var _ly: PackedInt32Array = []
-var _lv: PackedStringArray = []
+# Load buffers — names differ from the serialized field names "_lx/_ly/_lv"
+# so Godot routes those names through _get/_set instead of bypassing it.
+var _buf_x: PackedInt32Array = []
+var _buf_y: PackedInt32Array = []
+var _buf_v: PackedStringArray = []
+var _load_count: int = 0
+
+# Save snapshot — captured on the first _get("_lx") call so all three arrays
+# are guaranteed to derive from the same key order.
+var _save_keys: Array[Vector2i] = []
 
 
 # ── Serialization ─────────────────────────────────────────────────────────────
 
 func _get_property_list() -> Array[Dictionary]:
 	return [
-		{"name": "_lx", "type": TYPE_PACKED_INT32_ARRAY,   "usage": PROPERTY_USAGE_STORAGE},
-		{"name": "_ly", "type": TYPE_PACKED_INT32_ARRAY,   "usage": PROPERTY_USAGE_STORAGE},
-		{"name": "_lv", "type": TYPE_PACKED_STRING_ARRAY,  "usage": PROPERTY_USAGE_STORAGE},
+		{"name": "_lx", "type": TYPE_PACKED_INT32_ARRAY,  "usage": PROPERTY_USAGE_STORAGE},
+		{"name": "_ly", "type": TYPE_PACKED_INT32_ARRAY,  "usage": PROPERTY_USAGE_STORAGE},
+		{"name": "_lv", "type": TYPE_PACKED_STRING_ARRAY, "usage": PROPERTY_USAGE_STORAGE},
 	]
 
 
 func _get(property: StringName) -> Variant:
 	match property:
 		"_lx":
+			# Snapshot keys once; _ly and _lv reuse the same order.
+			_save_keys.assign(data.keys())
 			var arr := PackedInt32Array()
-			for pos: Vector2i in data: arr.append(pos.x)
+			arr.resize(_save_keys.size())
+			for i in _save_keys.size():
+				arr[i] = _save_keys[i].x
 			return arr
 		"_ly":
 			var arr := PackedInt32Array()
-			for pos: Vector2i in data: arr.append(pos.y)
+			arr.resize(_save_keys.size())
+			for i in _save_keys.size():
+				arr[i] = _save_keys[i].y
 			return arr
 		"_lv":
 			var arr := PackedStringArray()
-			for pos: Vector2i in data: arr.append(data[pos])
+			arr.resize(_save_keys.size())
+			for i in _save_keys.size():
+				arr[i] = data[_save_keys[i]]
+			_save_keys.clear()
 			return arr
 	return null
 
 
 func _set(property: StringName, value: Variant) -> bool:
 	match property:
-		"_lx": _lx = value
-		"_ly": _ly = value
-		"_lv": _lv = value
+		"_lx": _buf_x = value
+		"_ly": _buf_y = value
+		"_lv": _buf_v = value
 		_: return false
-	# Rebuild data once all three arrays are loaded (sizes consistent)
-	if _lx.size() == _ly.size() and _ly.size() == _lv.size():
+	_load_count += 1
+	if _load_count == 3:
+		_load_count = 0
 		data.clear()
-		for i in _lx.size():
-			data[Vector2i(_lx[i], _ly[i])] = _lv[i]
-		_lx.resize(0)
-		_ly.resize(0)
-		_lv.resize(0)
+		for i in _buf_x.size():
+			data[Vector2i(_buf_x[i], _buf_y[i])] = _buf_v[i]
+		_buf_x.resize(0)
+		_buf_y.resize(0)
+		_buf_v.resize(0)
 	return true
 
 

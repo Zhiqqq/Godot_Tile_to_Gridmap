@@ -41,6 +41,7 @@ func _enter_tree() -> void:
 	add_control_to_dock(EditorPlugin.DOCK_SLOT_RIGHT_BL, _ui)
 	_ui.build_button_pressed.connect(_on_build_pressed)
 	_ui.clear_button_pressed.connect(_on_clear_pressed)
+	_ui.save_button_pressed.connect(_on_save_pressed)
 	_ui.paint_mode_changed.connect(func(enabled: bool) -> void: _paint_mode = enabled)
 
 	_cursor = preload("res://addons/dual_grid_3d/dg3d_cursor.gd").new()
@@ -268,7 +269,12 @@ func _on_build_pressed() -> void:
 
 func _on_clear_pressed() -> void:
 	if _active_painter:
-		_active_painter.clear_gridmap()
+		_active_painter.clear_terrain()
+
+
+func _on_save_pressed() -> void:
+	if _active_painter:
+		_active_painter.save_logical_grid()
 
 
 func _refresh_terrain_list() -> void:

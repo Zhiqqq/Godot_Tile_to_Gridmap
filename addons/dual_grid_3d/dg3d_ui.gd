@@ -3,6 +3,7 @@ extends Control
 
 signal build_button_pressed()
 signal clear_button_pressed()
+signal save_button_pressed()
 signal paint_mode_changed(enabled: bool)
 
 var _terrain_group: ButtonGroup
@@ -21,6 +22,10 @@ func _on_build_button_pressed() -> void:
 
 func _on_clear_button_pressed() -> void:
 	clear_button_pressed.emit()
+
+
+func _on_save_button_pressed() -> void:
+	save_button_pressed.emit()
 
 
 func _on_paint_mode_toggled(pressed: bool) -> void:

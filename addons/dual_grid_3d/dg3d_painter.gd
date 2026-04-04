@@ -22,15 +22,11 @@ const NEIGHBOURS: Array = [
 # Example: { "cliff": [0, 1, 2] }
 @export var terrain_excludes: Dictionary = {}
 
-## 留空则自动放在 logical_grid_data 同目录下（terrain_data_gridmap.res）
-@export_global_file("*.res") var bake_cache_path: String = ""
-
-@export_tool_button("Rebuild Gridmap") var _btn_rebuild = rebuild_gridmap
-@export_tool_button("Clear Gridmap")   var _btn_clear   = clear_gridmap
-@export_tool_button("Bake GridMap")    var _btn_bake    = func(): bake_gridmap()
 
 # Runtime cache of MeshLibrary variants: { "grass0": ["grass0", "grass0b", ...] }
 var _tile_variants: Dictionary = {}
+# Runtime cache of MeshLibrary name → item id: { "grass0": 3, "grass0b": 7, ... }
+var _tile_name_to_id: Dictionary = {}
 
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
@@ -40,12 +36,6 @@ func _ready() -> void:
 		return
 	if logical_grid_data:
 		logical_grid_data = logical_grid_data.duplicate(true)
-	var cache_path := _get_cache_path()
-	if not cache_path.is_empty() and ResourceLoader.exists(cache_path):
-		var cache := ResourceLoader.load(cache_path) as DG3DGridMapCache
-		if cache and grid_map:
-			grid_map.set("data", {"cells": cache.cells})
-			return
 	if _validate():
 		rebuild_gridmap()
 
@@ -95,46 +85,45 @@ func rebuild_cell(logical_pos: Vector2i) -> void:
 func rebuild_gridmap() -> void:
 	if not _validate():
 		return
+	# Reload from .tres if the resource has a path (editor button).
+	# Skipped when resource_path is empty (e.g. runtime duplicate in _ready).
+	if not logical_grid_data.resource_path.is_empty():
+		var fresh := ResourceLoader.load(
+				logical_grid_data.resource_path, "", ResourceLoader.CACHE_MODE_IGNORE) as DG3DLogicalGrid
+		if not fresh:
+			push_error("DG3DPainter: failed to reload terrain from %s" % logical_grid_data.resource_path)
+			return
+		logical_grid_data.data = fresh.data.duplicate()
 	_cache_tile_variants()
 	grid_map.clear()
-
-	# Collect all unique GridMap cells affected by any logical cell
 	var affected: Dictionary = {}
 	for logical_pos in logical_grid_data.get_used_cells():
 		for gm_pos in _get_affected_gridmap_cells(logical_pos):
 			affected[gm_pos] = true
-
 	for gm_pos in affected:
 		_recompute_gridmap_cell(gm_pos)
 
 
-func clear_gridmap() -> void:
+func save_logical_grid() -> void:
+	if not logical_grid_data:
+		push_error("DG3DPainter: logical_grid_data is not assigned")
+		return
+	if logical_grid_data.resource_path.is_empty():
+		push_error("DG3DPainter: logical_grid_data has no resource_path — save it as a .tres file first")
+		return
+	var err := ResourceSaver.save(logical_grid_data)
+	if err != OK:
+		push_error("DG3DPainter: failed to save logical grid (error %d) at %s" % [err, logical_grid_data.resource_path])
+	else:
+		print("DG3DPainter: saved logical grid to ", logical_grid_data.resource_path)
+
+
+# Clears logical data and the visual GridMap. Save Terrain afterwards to persist.
+func clear_terrain() -> void:
+	if logical_grid_data:
+		logical_grid_data.clear()
 	if grid_map:
 		grid_map.clear()
-
-
-func bake_gridmap() -> void:
-	if not _validate():
-		return
-	rebuild_gridmap()
-	var path := _get_cache_path()
-	if path.is_empty():
-		push_error("DG3DPainter: logical_grid_data has no saved path, cannot bake")
-		return
-	var cache := DG3DGridMapCache.new()
-	var data: Dictionary = grid_map.get("data")
-	if data.has("cells"):
-		cache.cells = data["cells"]
-	ResourceSaver.save(cache, path)
-	print("DG3DPainter: baked GridMap to ", path)
-
-
-func _get_cache_path() -> String:
-	if not bake_cache_path.is_empty():
-		return bake_cache_path
-	if not logical_grid_data or logical_grid_data.resource_path.is_empty():
-		return ""
-	return logical_grid_data.resource_path.get_basename() + "_gridmap.res"
 
 
 # ── Internal ──────────────────────────────────────────────────────────────────
@@ -159,10 +148,12 @@ func _ensure_variants_cached() -> void:
 
 func _cache_tile_variants() -> void:
 	_tile_variants.clear()
+	_tile_name_to_id.clear()
 	if not grid_map or not grid_map.mesh_library:
 		return
 	for item_id in grid_map.mesh_library.get_item_list():
 		var item_name: String = grid_map.mesh_library.get_item_name(item_id)
+		_tile_name_to_id[item_name] = item_id
 		# Strip trailing lowercase letters (variant suffix, e.g. "grass0b" → "grass0")
 		var base_name: String = item_name.rstrip("abcdefghijklmnopqrstuvwxyz")
 		if base_name in _tile_variants:
@@ -204,7 +195,7 @@ func _recompute_gridmap_cell(gm_pos: Vector3i) -> void:
 
 	var base_name := "%s%d" % [terrain_name, bitmask]
 	var mesh_name := _pick_random_variant(base_name)
-	var mesh_id   := grid_map.mesh_library.find_item_by_name(mesh_name)
+	var mesh_id: int = _tile_name_to_id.get(mesh_name, -1)
 	if mesh_id != -1:
 		grid_map.set_cell_item(gm_pos, mesh_id)
 	else:
@@ -213,16 +204,16 @@ func _recompute_gridmap_cell(gm_pos: Vector3i) -> void:
 
 # Among the logical corners that have a terrain, return the one with the highest height.
 func _pick_terrain_by_height(corners: Array) -> String:
-	var candidates := []
+	var best_terrain := ""
+	var best_height := -1
 	for pos in corners:
 		var terrain: String = logical_grid_data.get_cell(pos)
 		if terrain != "":
 			var h: int = terrain_heights.get(terrain, 0)
-			candidates.append([terrain, h])
-	if candidates.is_empty():
-		return ""
-	candidates.sort_custom(func(a, b): return a[1] > b[1])
-	return candidates[0][0]
+			if h > best_height:
+				best_height = h
+				best_terrain = terrain
+	return best_terrain
 
 
 # Computes the 4-bit dual-grid bitmask for the given terrain at a GridMap cell.
